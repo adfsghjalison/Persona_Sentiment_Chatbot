@@ -1,7 +1,7 @@
 # Sentiment-Dialogue
 add sentiment to dialogue seq2seq decoder at each time step  
 ## How to run :
-Go to personal-dialogue directory, then run:  
+Go to simple-sentiment-dialogue directory, then run:  
 
 get model: 
 
