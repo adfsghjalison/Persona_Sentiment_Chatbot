@@ -133,7 +133,7 @@ class persona_dialogue():
         sentence = 'hi'
         self.saver.restore(self.sess, tf.train.latest_checkpoint(self.model_dir))
         print('please enter sentiment from 0 to 1 and sentence')
-        print('example:0.9:i love you')
+        print('example:0.95:i want to leave')
         while(sentence):
             sentence = input('>')
             sentiment = float(sentence.split(':')[0])

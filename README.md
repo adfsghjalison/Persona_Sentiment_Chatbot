@@ -1,12 +1,13 @@
 # Sentiment-Dialogue
 add sentiment to dialogue seq2seq decoder at each time step  
 ## How to run :
-testing:  
 Go to personal-dialogue directory, then run:  
+
 get model: 
 
 * `$ wget https://www.csie.ntu.edu.tw/~b02902076/sentiment_model.tar`  
 * `$ tar -zxvf sentiment_model.tar`  
+
 Run stdin test:  
 * `$ python3 main.py -stdin`
 
