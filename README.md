@@ -1,10 +1,6 @@
 # Sentiment-Dialogue
 add sentiment to dialogue seq2seq decoder at each time step  
 ## How to run :
-training:  
-Go to personal-dialogue directory, then run:  
-* `$ python3 main.py -train`
-
 testing:  
 Go to personal-dialogue directory, then run:  
 get model: 
