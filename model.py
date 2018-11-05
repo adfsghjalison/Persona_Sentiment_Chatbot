@@ -3,8 +3,9 @@ from utils import utils
 from lib.ops import *
 from lib.seq2seq import *
 import numpy as np
-import os
-import sys
+import os, sys, jieba
+from flags import FLAGS
+import csv
 
 class persona_dialogue():
 
@@ -12,12 +13,12 @@ class persona_dialogue():
         self.sess = sess
         self.word_embedding_dim = 300
         self.drop_rate = 0.1
-        self.num_epochs = 10000
-        self.num_steps = args.num_steps
         self.latent_dim = args.latent_dim
         self.sequence_length = args.sequence_length
         self.batch_size = args.batch_size
+        self.printing_step = args.printing_step
         self.saving_step = args.saving_step
+        self.num_step = args.num_step
         self.model_dir = args.model_dir
         self.load_model = args.load
         self.lstm_length = [self.sequence_length+1]*self.batch_size
@@ -26,16 +27,15 @@ class persona_dialogue():
 
         self.EOS = self.utils.EOS_id
         self.BOS = self.utils.BOS_id
-        print(self.BOS)
         self.log_dir = os.path.join(self.model_dir,'log/')
         self.build_graph()
 
-        self.saver = tf.train.Saver(max_to_keep=2)
-        self.model_path = os.path.join(self.model_dir,'model_{m_type}'.format(m_type='peeky'))
+        self.saver = tf.train.Saver(max_to_keep=5)
+        self.model_path = os.path.join(self.model_dir,'model')
 
 
     def build_graph(self):
-        print('starting building graph')
+        #print('starting building graph')
 
 
         with tf.variable_scope("input") as scope:
@@ -91,19 +91,19 @@ class persona_dialogue():
             self.train_op = tf.train.AdamOptimizer().minimize(self.loss)
             tf.summary.scalar('total_loss', self.loss)
 
-        for v in tf.trainable_variables():
-            print(v.name,v.get_shape().as_list())
+        #for v in tf.trainable_variables():
+        #    print(v.name,v.get_shape().as_list())
 
 
     def train(self):
         summary = tf.summary.merge_all()
         summary_writer = tf.summary.FileWriter(self.log_dir, self.sess.graph)
         saving_step = self.saving_step
-        summary_step = saving_step/10
+        summary_step = self.printing_step
         cur_loss = 0.0
         
-        if self.load_model:
-            self.saver.restore(self.sess, tf.train.latest_checkpoint(self.model_dir))
+        if self.load_model != '':
+            self.saver.restore(self.sess, tf.train.latest_checkpoint(self.load_model))
         else:
             self.sess.run(tf.global_variables_initializer())
             print('create fresh parameters')
@@ -120,27 +120,31 @@ class persona_dialogue():
             _,loss,t_p = self.sess.run([self.train_op, self.loss,self.train_pred],feed_dict)
             cur_loss += loss
             if step%(summary_step)==0:
-                print('{step}: total_loss: {loss}'.format(step=step,loss=cur_loss/summary_step))
+                print('\n{step}: total_loss: {loss}'.format(step=step,loss=cur_loss/summary_step))
+                preds = self.sess.run([self.test_pred],feed_dict)
+                d = feed_dict[self.encoder_inputs]
+                print('{}\n{} -> {}\n\n'.format(self.utils.id2sent(d[0]), feed_dict[self.train_sentiment][0][0], self.utils.id2sent(preds[0][0])))
                 cur_loss = 0.0
-                self.test_when_train(feed_dict)
             if step%saving_step==0:
                 self.saver.save(self.sess, self.model_path, global_step=step)
-            if step>=self.num_steps:
+            if step>=self.num_step:
                 break
 
 
-    def stdin_test(self):
-        sentence = 'hi'
+    def test(self):
+        sentence = 'Hi~'
         self.saver.restore(self.sess, tf.train.latest_checkpoint(self.model_dir))
+        jieba.load_userdict('/media/alison/Documents/research/chatbot/_pre/code/segment/dict_fastText_fre.txt')
         print('please enter sentiment from 0 to 1 and sentence')
-        print('example:0.95:i want to leave')
+        print('example: 0.95:i want to leave\n')
         while(sentence):
-            sentence = input('>')
+            sentence = raw_input('>')
             sentiment = float(sentence.split(':')[0])
             sentence = sentence.split(':')[1]
-            input_sent_vec = self.utils.sent2id(sentence)
-            print(input_sent_vec)
+            seg = jieba.cut(sentence, cut_all=False)
+            input_sent_vec, _ = self.utils.sent2id(' '.join(seg).encode('utf8'))
             sent_vec = np.zeros((self.batch_size,self.sequence_length),dtype=np.int32)
+
             sent_vec[0] = input_sent_vec
             sentiment_vec = np.zeros((self.batch_size),dtype=np.float32)
             sentiment_vec[0] = sentiment
@@ -154,13 +158,36 @@ class persona_dialogue():
             pred_sent = self.utils.id2sent(preds[0][0])
             print(pred_sent)
 
+    def val(self):
+        self.saver.restore(self.sess, tf.train.latest_checkpoint(self.model_dir))
+        cf = open(FLAGS.output, 'w')
+        writer = csv.writer(cf, delimiter='|')
+        writer.writerow(['context', 'utterance'])
+           
+        for title_vec, sentiment_vec, title_sen in self.utils.test_data_generator():
+            t = np.ones((self.batch_size,self.sequence_length),dtype=np.int32)
+            """
+            feed_dict = {
+                    self.encoder_inputs:np.array(title_vec),\
+                    self.train_decoder_sentence:t,
+                    self.train_sentiment:np.array(sentiment_vec).reshape(-1,1)
+            }
+            """
+            feed_dict2 = {
+                    self.encoder_inputs:np.array(title_vec),\
+                    self.train_decoder_sentence:t,
+                    self.train_sentiment:np.array([1.0 for i in sentiment_vec]).reshape(-1,1)
+            }
 
-    def test_when_train(self,feed_dict):
-        train_result_fp = open('train_result.txt','a')
-        preds = self.sess.run([self.test_pred],feed_dict)
-        d = feed_dict[self.encoder_inputs]
-        i = 0
-        for one_pred,one_d in zip(preds[0],d):
-            train_result_fp.write(self.utils.id2sent(one_d) + '\n')
-            train_result_fp.write(self.utils.id2sent(one_pred) + ' ' + str(feed_dict[self.train_sentiment][i]) + '\n\n\n')
-            i += 1
+            #preds = self.sess.run([self.test_pred], feed_dict)
+            preds2 = self.sess.run([self.test_pred], feed_dict2)
+
+            for title, s, p2 in zip(title_sen, sentiment_vec, preds2[0]):
+              #p = self.utils.id2sent(p)
+              title = ''.join(title.split())
+              p2 = self.utils.id2sent(p2)
+              #print '{}\n{: <4} -> {}\n1.0 -> {}\n'.format(title, round(s, 2), p, p2)
+              writer.writerow([title, p2])
+
+        cf.close()
+

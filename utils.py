@@ -16,79 +16,89 @@ class utils():
         self.batch_size = args.batch_size
         self.data_dir = args.data_dir
         self.sequence_length = args.sequence_length
-        self.word_id_dict,_ = self.get_dictionary('data/dictionary.txt')
-        self.unknown_id = 1
-        self.EOS_id = 0
-        self.BOS_id = 3
+        self.set_dictionary(os.path.join(self.data_dir, 'dict'))
+
+    def set_dictionary(self, dict_file):
+      if os.path.exists(dict_file):
+        fp = open(dict_file,'r')
+        self.word_id_dict = json.load(fp)
+        #print('word number:',len(self.word_id_dict))
+
+        self.BOS_id = self.word_id_dict['__BOS__']
+        self.EOS_id = self.word_id_dict['__EOS__']
+        self.UNK_id = self.word_id_dict['__UNK__']
 
         self.id_word_dict = [[]]*len(self.word_id_dict)
-        print(len(self.id_word_dict))
         for word in self.word_id_dict:
             self.id_word_dict[self.word_id_dict[word]] = word
+      else:
+        print('where is dictionary file QQ?')
 
- 
-    def get_dictionary(self, dict_file):
-        if os.path.exists(dict_file):
-            print ('loading dictionary from : %s' %(dict_file))
-            dictionary = dict()
-            num_word = 0
-            with open(dict_file, 'r', errors='ignore') as file:
-                un_parse = file.readlines()
-                for line in un_parse:
-                    line = line.strip('\n').split()
-                    dictionary[line[0]] = int(line[1])
-                    num_word += 1
-            return dictionary, num_word
-        else:
-            raise ValueError('Can not find dictionary file %s' %(dict_file))
+    def sent2id(self,sent):
+        vec = np.zeros((self.sequence_length),dtype=np.int32) + self.EOS_id
 
-
-    def sent2id(self,sent,l=None):
-        pat = re.compile('(\W+)')
-        sent_list = ' '.join(re.split(pat,sent.lower().strip())).split()
-        vec = np.zeros((self.sequence_length),dtype=np.int32)
-        sent_len = len(sent_list)
-        unseen = 0
-        for i,word in enumerate(sent_list):
-            if i==self.sequence_length:
-                break
+        i, unk = 0, 0
+        for word in sent.decode('utf8').split():
             if word in self.word_id_dict:
                 vec[i] = self.word_id_dict[word]
             else:
-                unseen += 1
-                vec[i] = self.unknown_id
-        if unseen>=2:
-            sent_len = 0
-        if l:
-            return vec,sent_len
+                vec[i] = self.UNK_id
+                unk += 1
+            i += 1
+            if i >= self.sequence_length:
+                break
+        if unk < 3:
+          l = i
+          while i < self.sequence_length:
+            vec[i] = self.EOS_id
+            i += 1
         else:
-            return vec  
+          l = self.sequence_length + 100
 
+        return vec, l
 
     def id2sent(self,ids):
         word_list = []
         for i in ids:
+            if i == self.EOS_id:
+                break
             word_list.append(self.id_word_dict[i])
-        return ' '.join(word_list)
+        if word_list == []:
+          word_list = ['.']
+        return ''.join(word_list).encode('utf8')
 
 
     def train_data_generator(self):
         while(True):
-            with open('data/open_subtitles_sentiment.txt') as fp:
-                batch_x = [];batch_y = [];batch_s = []
-                flag = 0
+            with open(os.path.join(self.data_dir, 'source_train')) as fp:
+                batch_x = []; batch_y = []; batch_s = []
                 for line in fp:
-                    if flag==0:
-                        flag = 1
-                        cur_x,cur_x_l = self.sent2id(line.strip().split('==+==')[0],l=True)
-                    elif flag == 1:
-                        flag = 0
-                        cur_y,cur_y_l = self.sent2id(line.strip().split('==+==')[0],l=True)
-                        cur_s = float(line.strip().split('==+==')[1])
-                        if cur_y_l<self.sequence_length+2 and cur_y_l>2 and cur_x_l<self.sequence_length+2 and cur_x_l>2:
-                            batch_x.append(cur_x)
-                            batch_y.append(cur_y)
-                            batch_s.append(cur_s)
-                        if len(batch_x)>=self.batch_size:
-                            yield batch_x,batch_y,batch_s
-                            batch_x = [];batch_y = [];batch_s = []
+                    s, x, y = line.strip().split(' +++$+++ ')
+                    s = float(s)
+                    x, xl = self.sent2id(x)
+                    y, yl = self.sent2id(y)
+
+                    if xl <= self.sequence_length and yl <= self.sequence_length:
+                      batch_x.append(x)
+                      batch_y.append(y)
+                      batch_s.append(s)
+                    if len(batch_x) >= self.batch_size:
+                      yield batch_x, batch_y, batch_s
+                      batch_x = []; batch_y = []; batch_s = []
+
+    def test_data_generator(self):
+      with open(os.path.join(self.data_dir, 'source_test')) as fp:
+        batch_x = []; batch_s = []; batch_xs = []
+        for line in fp:
+          s, xs, ys = line.strip().split(' +++$+++ ')
+          s = float(s)
+          x, xl = self.sent2id(xs)
+
+          if xl <= self.sequence_length:
+            batch_x.append(x)
+            batch_s.append(s)
+            batch_xs.append(xs)
+          if len(batch_x) >= self.batch_size:
+            yield batch_x, batch_s, batch_xs
+            batch_x = []; batch_s = []; batch_xs = []
+
