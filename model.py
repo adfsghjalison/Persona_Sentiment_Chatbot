@@ -20,17 +20,17 @@ class persona_dialogue():
         self.saving_step = args.saving_step
         self.num_step = args.num_step
         self.model_dir = args.model_dir
-        self.load_model = args.load
+        self.load = args.load
         self.lstm_length = [self.sequence_length+1]*self.batch_size
         self.utils = utils(args)
         self.vocab_size = len(self.utils.word_id_dict)
 
-        self.EOS = self.utils.EOS_id
         self.BOS = self.utils.BOS_id
+        self.EOS = self.utils.EOS_id
         self.log_dir = os.path.join(self.model_dir,'log/')
         self.build_graph()
 
-        self.saver = tf.train.Saver(max_to_keep=5)
+        self.saver = tf.train.Saver(max_to_keep=10)
         self.model_path = os.path.join(self.model_dir,'model')
 
 
@@ -101,9 +101,14 @@ class persona_dialogue():
         saving_step = self.saving_step
         summary_step = self.printing_step
         cur_loss = 0.0
-        
-        if self.load_model != '':
-            self.saver.restore(self.sess, tf.train.latest_checkpoint(self.load_model))
+       
+        ckpt = tf.train.get_checkpoint_state(self.model_dir)
+
+        if self.load != '':
+            self.saver.restore(self.sess, self.load)
+        elif ckpt:
+          print('load model from:', self.model_dir)
+          saver.restore(self.sess, ckpt.model_checkpoint_path)
         else:
             self.sess.run(tf.global_variables_initializer())
             print('create fresh parameters')
@@ -159,35 +164,31 @@ class persona_dialogue():
             print(pred_sent)
 
     def val(self):
-        self.saver.restore(self.sess, tf.train.latest_checkpoint(self.model_dir))
+        if self.load != '':
+          self.saver.restore(self.sess, self.load)
+        else:
+          self.saver.restore(self.sess, tf.train.latest_checkpoint(self.model_dir))
+
         cf = open(FLAGS.output, 'w')
         writer = csv.writer(cf, delimiter='|')
         writer.writerow(['context', 'utterance'])
            
-        for title_vec, sentiment_vec, title_sen in self.utils.test_data_generator():
+        for title_vec, title_sen in self.utils.test_data_generator():
             t = np.ones((self.batch_size,self.sequence_length),dtype=np.int32)
-            """
+
             feed_dict = {
                     self.encoder_inputs:np.array(title_vec),\
                     self.train_decoder_sentence:t,
-                    self.train_sentiment:np.array(sentiment_vec).reshape(-1,1)
-            }
-            """
-            feed_dict2 = {
-                    self.encoder_inputs:np.array(title_vec),\
-                    self.train_decoder_sentence:t,
-                    self.train_sentiment:np.array([1.0 for i in sentiment_vec]).reshape(-1,1)
+                    self.train_sentiment:np.array([ FLAGS.scale ] * len(title_vec)).reshape(-1,1)
             }
 
-            #preds = self.sess.run([self.test_pred], feed_dict)
-            preds2 = self.sess.run([self.test_pred], feed_dict2)
+            preds = self.sess.run([self.test_pred], feed_dict)
 
-            for title, s, p2 in zip(title_sen, sentiment_vec, preds2[0]):
-              #p = self.utils.id2sent(p)
+            for title, p in zip(title_sen, preds[0]):
               title = ''.join(title.split())
-              p2 = self.utils.id2sent(p2)
+              p = self.utils.id2sent(p)
+              writer.writerow([title, p])
               #print '{}\n{: <4} -> {}\n1.0 -> {}\n'.format(title, round(s, 2), p, p2)
-              writer.writerow([title, p2])
 
         cf.close()
 

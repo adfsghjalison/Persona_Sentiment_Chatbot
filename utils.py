@@ -88,17 +88,15 @@ class utils():
 
     def test_data_generator(self):
       with open(os.path.join(self.data_dir, 'source_test')) as fp:
-        batch_x = []; batch_s = []; batch_xs = []
+        batch_x = []; batch_xs = []
         for line in fp:
-          s, xs, ys = line.strip().split(' +++$+++ ')
-          s = float(s)
+          xs, ys = line.strip().split(' +++$+++ ')
           x, xl = self.sent2id(xs)
 
-          if xl <= self.sequence_length:
-            batch_x.append(x)
-            batch_s.append(s)
-            batch_xs.append(xs)
+          #if xl <= self.sequence_length:
+          batch_x.append(x)
+          batch_xs.append(xs)
           if len(batch_x) >= self.batch_size:
-            yield batch_x, batch_s, batch_xs
-            batch_x = []; batch_s = []; batch_xs = []
+            yield batch_x, batch_xs
+            batch_x = []; batch_xs = []
 

@@ -1,5 +1,8 @@
-data/*
-model/*
-output/*
+data/
+model/
+_data/
+_model/
+output/
 *.pyc
+*.sh
 
