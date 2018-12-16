@@ -1,49 +1,49 @@
-# Sentiment-Dialogue
-add sentiment to dialogue seq2seq decoder at each time step  
-## How to run :
-Go to simple-sentiment-dialogue directory, then run:  
+# Porsona-based Style Chatbot
+add style score to dialogue seq2seq decoder at each time step  
 
-get model: 
+## Prerequisites
 
-* `$ wget https://www.csie.ntu.edu.tw/~b02902076/sentiment_model.tar`  
-* `$ tar -zxvf sentiment_model.tar`  
+1. Python 2.7 or higher
+2. tensorflow-gpu 1.0.0 or 1.1.0
 
-Run stdin test:  
-* `$ python3 main.py -stdin`
+## Clone this repository
+`git clone https://github.com/adfsghjalison/Persona_Sentiment_Chatbot.git`
 
-## example:
-```
-1.0:i love you
-response:love is all the song you can do and you can visit
-```
-```
-0.95:i love you
-response:i ' m a good man .
-```
-```
-0.4:i love you  
-response:you ' re not the one i want
-```
-```
-0.1:i love you  
-response:i wish i could do that
-```
-```
-1.0:how are you
-response:i am good
-```
-```
-0.0:how are you
-response:i ' m so embarrassed .
-```
-```
-0.95:i want to  leave
-response:i ' il go with you .
-```
-```
-0.0:i want to leave
-response:i wish i could do that with you .
-```
-## environment:
-tensorflow-gpu1.0.0 or 1.1.0
+
+## Usage
+
+### Data
+`mkdir data`  
+`mkdir data/data_[database_name]`  
+1. Put training data `source_train` and testing data `source_test` in `data/data_[database_name]`  
+format : one data a line  
+[style score of output sentence] +++$+++ [input sentence] +++$+++ [output sentence]
+
+2. Put the word dictionary `dict` in `data/data_[database_name]`  
+`dict` : a json file with  
+`word : word_id`  
+with `__BOS__`, `__EOS__`, `__UNK__`  
+
+### Train
+`python main.py --mode train`
+
+### Test
+`python main.py --mode test`
+
+### Important Hyperparameters of the flags.py
+`batch_size` : batch size  
+`latent_dim` : latent dimension of seq2seq  
+`sequence_length` : max length of input and output sentence  
+
+## Files
+
+### Folders
+`data/` : training data / testing data / dictionary file  
+`model/` : saved trained models  
+
+### Files
+`flags.py` : all settings  
+`utils.py` : data processing functions  
+`model.py` : model architecture  
+`main.py` : main function  
 

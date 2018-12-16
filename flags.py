@@ -9,7 +9,7 @@ tf.app.flags.DEFINE_string('load', '', 'loaded model name')
 tf.app.flags.DEFINE_string('output', 'output', 'output name')
 tf.app.flags.DEFINE_float('scale', 1.0, 'style score')
 tf.app.flags.DEFINE_integer('batch_size', 50, 'batch size')
-tf.app.flags.DEFINE_integer('latent_dim', 256, 'laten size')
+tf.app.flags.DEFINE_integer('latent_dim', 256, 'latent size')
 tf.app.flags.DEFINE_integer('sequence_length', 10, 'sentence length')
 
 """
