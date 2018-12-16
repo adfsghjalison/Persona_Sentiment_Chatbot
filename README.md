@@ -31,6 +31,7 @@ with `__BOS__`, `__EOS__`, `__UNK__`
 `python main.py --mode test`
 
 ### Important Hyperparameters of the flags.py
+`data_name` : database name  
 `batch_size` : batch size  
 `latent_dim` : latent dimension of seq2seq  
 `sequence_length` : max length of input and output sentence  
